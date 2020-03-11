@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Wall
+  m_Name: BeMasked
   m_Shader: {fileID: 4800000, guid: 8a2e5762bd06748fcbe1e25e089bd635, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
