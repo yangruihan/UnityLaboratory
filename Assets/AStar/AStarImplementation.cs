@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -7,7 +8,7 @@ public class AStarImplementation : MonoBehaviour
     public Transform Unit;
     public float UnitSize = 0.5f;
     public float UnitSpace = 0.1f;
-    
+
     private List<Transform> _units = new List<Transform>();
 
     private void Start()
@@ -23,13 +24,14 @@ public class AStarImplementation : MonoBehaviour
         }
 
         for (var i = 3; i < 6; i++)
-            for (var j = 3; j < 12; j++)
-                cost[i][j] = 10;
-            
+        for (var j = 3; j < 12; j++)
+            cost[i][j] = 10;
+
         var gridGraph = new GridGraph(16, 16, cost);
-        var pathFinder = new BFSPathFinder();
+        // var pathFinder = new BfsPathFinder();
+        var pathFinder = new DijkstraPathFinder();
         var path = pathFinder.Find(gridGraph, Pos.Create(0, 7), Pos.Create(15, 15));
-        
+
         SpawnUnit(gridGraph);
         DrawGrid(gridGraph);
         DrawPath(gridGraph, path);
@@ -60,7 +62,7 @@ public class AStarImplementation : MonoBehaviour
             for (var j = 0; j < graph.GetHeight(); j++)
             {
                 var unit = _units[i + j * graph.GetWidth()];
-                
+
                 unit.localScale = new Vector3(UnitSize, UnitSize, 1);
                 unit.gameObject.SetActive(true);
 
@@ -96,7 +98,7 @@ public struct Pos
     {
         return new Pos(x, y);
     }
-    
+
     public Pos(int x, int y)
     {
         X = x;
@@ -109,7 +111,41 @@ public struct Pos
     }
 }
 
-public interface PathFinder
+public class PriorityQueue<T>
+{
+    private readonly List<Tuple<T, double>> _elements = new List<Tuple<T, double>>();
+
+    public int Count => _elements.Count;
+
+    public void Enqueue(T item, double priority)
+    {
+        _elements.Add(Tuple.Create(item, priority));
+    }
+
+    public T Dequeue()
+    {
+        var bestIndex = 0;
+
+        for (var i = 0; i < _elements.Count; i++)
+        {
+            if (_elements[i].Item2 < _elements[bestIndex].Item2)
+            {
+                bestIndex = i;
+            }
+        }
+
+        var bestItem = _elements[bestIndex].Item1;
+        _elements.RemoveAt(bestIndex);
+        return bestItem;
+    }
+
+    public void Clear()
+    {
+        _elements.Clear();
+    }
+}
+
+public interface IPathFinder
 {
     List<Pos> Find(Graph g, Pos start, Pos goal);
 }
@@ -118,7 +154,7 @@ public abstract class Graph
 {
     public abstract int GetHeight();
     public abstract int GetWidth();
-    public abstract List<Pos> GetNeighbors(Pos p);
+    public abstract List<Pos> GetNeighbors(Pos p, ref List<Pos> neighbors);
     public abstract int GetCost(Pos p);
 }
 
@@ -145,23 +181,26 @@ public class GridGraph : Graph
         return _width;
     }
 
-    public override List<Pos> GetNeighbors(Pos p)
+    public override List<Pos> GetNeighbors(Pos p, ref List<Pos> neighbors)
     {
-        var ret = new List<Pos>();
+        if (neighbors == null)
+            neighbors = new List<Pos>();
+        else
+            neighbors.Clear();
 
         if (p.X - 1 >= 0)
-            ret.Add(new Pos(p.X - 1, p.Y));
+            neighbors.Add(new Pos(p.X - 1, p.Y));
 
         if (p.X + 1 < _width)
-            ret.Add(new Pos(p.X + 1, p.Y));
+            neighbors.Add(new Pos(p.X + 1, p.Y));
 
         if (p.Y - 1 >= 0)
-            ret.Add(new Pos(p.X, p.Y - 1));
+            neighbors.Add(new Pos(p.X, p.Y - 1));
 
         if (p.Y + 1 < _height)
-            ret.Add(new Pos(p.X, p.Y + 1));
+            neighbors.Add(new Pos(p.X, p.Y + 1));
 
-        return ret;
+        return neighbors;
     }
 
     public override int GetCost(Pos p)
@@ -173,14 +212,15 @@ public class GridGraph : Graph
 /// <summary>
 /// 广度优先搜索算法
 /// </summary>
-public class BFSPathFinder : PathFinder
+public class BfsPathFinder : IPathFinder
 {
     private readonly Queue<Pos> _frontier = new Queue<Pos>();
-    private readonly Dictionary<Pos, Pos> _came_from = new Dictionary<Pos, Pos>();
+    private readonly Dictionary<Pos, Pos> _cameFrom = new Dictionary<Pos, Pos>();
 
     public List<Pos> Find(Graph g, Pos start, Pos goal)
     {
         var ret = new List<Pos>();
+        var neighbors = new List<Pos>();
 
         _frontier.Enqueue(start);
 
@@ -191,11 +231,11 @@ public class BFSPathFinder : PathFinder
             if (current.Eq(goal))
                 break;
 
-            foreach (var neighbor in g.GetNeighbors(current))
+            foreach (var neighbor in g.GetNeighbors(current, ref neighbors))
             {
-                if (!_came_from.ContainsKey(neighbor))
+                if (!_cameFrom.ContainsKey(neighbor))
                 {
-                    _came_from.Add(neighbor, current);
+                    _cameFrom.Add(neighbor, current);
                     _frontier.Enqueue(neighbor);
                 }
             }
@@ -205,13 +245,72 @@ public class BFSPathFinder : PathFinder
         while (!c.Eq(start))
         {
             ret.Add(c);
-            c = _came_from[c];
+            c = _cameFrom[c];
         }
 
         ret.Add(start);
 
         _frontier.Clear();
-        _came_from.Clear();
+        _cameFrom.Clear();
+
+        return ret;
+    }
+}
+
+public class DijkstraPathFinder : IPathFinder
+{
+    private readonly PriorityQueue<Pos> _frontier = new PriorityQueue<Pos>();
+    private readonly Dictionary<Pos, Pos> _cameFrom = new Dictionary<Pos, Pos>();
+    private readonly Dictionary<Pos, int> _costSoFar = new Dictionary<Pos, int>();
+
+    public List<Pos> Find(Graph g, Pos start, Pos goal)
+    {
+        var ret = new List<Pos>();
+        var neignbors = new List<Pos>();
+
+        _frontier.Enqueue(start, 0);
+        _costSoFar.Add(start, 0);
+
+        while (_frontier.Count > 0)
+        {
+            var current = _frontier.Dequeue();
+
+            if (current.Eq(goal))
+                break;
+
+            foreach (var neighbor in g.GetNeighbors(current, ref neignbors))
+            {
+                var newCost = _costSoFar[current] + g.GetCost(neighbor);
+                if (!_costSoFar.ContainsKey(neighbor) || _costSoFar[neighbor] > newCost)
+                {
+                    if (!_costSoFar.ContainsKey(neighbor))
+                        _costSoFar.Add(neighbor, newCost);
+                    else
+                        _costSoFar[neighbor] = newCost;
+
+                    if (!_cameFrom.ContainsKey(neighbor))
+                        _cameFrom.Add(neighbor, current);
+                    else
+                        _cameFrom[neighbor] = current;
+
+                    _frontier.Enqueue(neighbor, newCost);
+                }
+            }
+        }
+        
+        var c = goal;
+        while (!c.Eq(start))
+        {
+            ret.Add(c);
+            c = _cameFrom[c];
+        }
+
+        ret.Add(start);
+
+        _frontier.Clear();
+
+        _cameFrom.Clear();
+        _costSoFar.Clear();
 
         return ret;
     }
