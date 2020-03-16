@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -8,6 +7,8 @@ public class AStarImplementation : MonoBehaviour
     public Transform Unit;
     public float UnitSize = 0.5f;
     public float UnitSpace = 0.1f;
+    
+    private List<Transform> _units = new List<Transform>();
 
     private void Start()
     {
@@ -26,10 +27,20 @@ public class AStarImplementation : MonoBehaviour
                 cost[i][j] = 10;
             
         var gridGraph = new GridGraph(16, 16, cost);
+        var pathFinder = new BFSPathFinder();
+        var path = pathFinder.Find(gridGraph, Pos.Create(0, 7), Pos.Create(15, 15));
         
-        for (var i = 0; i < gridGraph.GetWidth(); i++)
+        SpawnUnit(gridGraph);
+        DrawGrid(gridGraph);
+        DrawPath(gridGraph, path);
+    }
+
+    private void SpawnUnit(Graph graph)
+    {
+        _units.Clear();
+        for (var j = 0; j < graph.GetHeight(); j++)
         {
-            for (var j = 0; j < gridGraph.GetHeight(); j++)
+            for (var i = 0; i < graph.GetWidth(); i++)
             {
                 var unit = Instantiate(Unit,
                     new Vector3(
@@ -37,11 +48,24 @@ public class AStarImplementation : MonoBehaviour
                         j * UnitSize + (j - 1) * UnitSpace,
                         0),
                     Quaternion.identity);
+                _units.Add(unit);
+            }
+        }
+    }
+
+    private void DrawGrid(Graph graph)
+    {
+        for (var i = 0; i < graph.GetWidth(); i++)
+        {
+            for (var j = 0; j < graph.GetHeight(); j++)
+            {
+                var unit = _units[i + j * graph.GetWidth()];
+                
                 unit.localScale = new Vector3(UnitSize, UnitSize, 1);
                 unit.gameObject.SetActive(true);
 
                 var t = unit.GetComponentInChildren<TextMeshProUGUI>();
-                var c = gridGraph.GetCost(Pos.Create(i, j));
+                var c = graph.GetCost(Pos.Create(i, j));
                 t.text = c.ToString();
                 if (c >= 10)
                 {
@@ -49,6 +73,16 @@ public class AStarImplementation : MonoBehaviour
                     spriteRenderer.color = Color.red;
                 }
             }
+        }
+    }
+
+    private void DrawPath(Graph graph, List<Pos> path)
+    {
+        foreach (var p in path)
+        {
+            var unit = _units[p.X + p.Y * graph.GetWidth()];
+            var spriteRenderer = unit.GetComponent<SpriteRenderer>();
+            spriteRenderer.color = Color.green;
         }
     }
 }
