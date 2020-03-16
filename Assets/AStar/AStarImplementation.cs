@@ -53,64 +53,72 @@ public class AStarImplementation : MonoBehaviour
         IPathFinder pathFinder = new BfsPathFinder();
         var path = pathFinder.Find(gridGraph, start, goal);
 
-        var units = new List<Transform>();
-        SpawnUnit(gridGraph, Vector2.zero, ref units);
-        DrawGrid(gridGraph, units, Color.white);
-        DrawPath(gridGraph, path, units);
+        Show(gridGraph, new Vector2(0, 0), Color.white, path);
 
         var sumCost = 0;
         foreach (var p in path)
             sumCost += cost[p.X][p.Y];
-
-        Debug.LogError($"BFS Sum Cost: {sumCost}, Sum Step: {path.Count}");
+        
+        if (sumCost == 0)
+            Debug.LogError("BFS 没有找到路径");
+        else
+            Debug.LogError($"BFS 总成本: {sumCost}, 总步数: {path.Count}");
 
         // ----- Dijkstra -----
 
         pathFinder = new DijkstraPathFinder();
         path = pathFinder.Find(gridGraph, start, goal);
 
-        units = new List<Transform>();
-        SpawnUnit(gridGraph, new Vector2(10, 0), ref units);
-        DrawGrid(gridGraph, units, Color.yellow);
-        DrawPath(gridGraph, path, units);
+        Show(gridGraph, new Vector2(10, 0), Color.yellow, path);
 
         sumCost = 0;
         foreach (var p in path)
             sumCost += cost[p.X][p.Y];
 
-        Debug.LogError($"Dijkstra Sum Cost: {sumCost}, Sum Step: {path.Count}");
+        if (sumCost == 0)
+            Debug.LogError("Dijkstra 没有找到路径");
+        else
+            Debug.LogError($"Dijkstra 总成本: {sumCost}, 总步数: {path.Count}");
 
         // ----- GreedyBestFirst -----
 
         pathFinder = new GreedyBestFirstPathFinder();
         path = pathFinder.Find(gridGraph, start, goal);
 
-        units = new List<Transform>();
-        SpawnUnit(gridGraph, new Vector2(0, 10), ref units);
-        DrawGrid(gridGraph, units, Color.grey);
-        DrawPath(gridGraph, path, units);
+        Show(gridGraph, new Vector2(0, 10), Color.grey, path);
 
         sumCost = 0;
         foreach (var p in path)
             sumCost += cost[p.X][p.Y];
 
-        Debug.LogError($"GreedyBestFirst Sum Cost: {sumCost}, Sum Step: {path.Count}");
+        if (sumCost == 0)
+            Debug.LogError("GreedyBestFirst 没有找到路径");
+        else
+            Debug.LogError($"GreedyBestFirst 总成本: {sumCost}, 总步数: {path.Count}");
 
         // ----- AStar -----
 
         pathFinder = new AStarPathFinder();
         path = pathFinder.Find(gridGraph, start, goal);
 
-        units = new List<Transform>();
-        SpawnUnit(gridGraph, new Vector2(10, 10), ref units);
-        DrawGrid(gridGraph, units, Color.magenta);
-        DrawPath(gridGraph, path, units);
+        Show(gridGraph, new Vector2(10, 10), Color.magenta, path);
 
         sumCost = 0;
         foreach (var p in path)
             sumCost += cost[p.X][p.Y];
 
-        Debug.LogError($"AStar Sum Cost: {sumCost}, Sum Step: {path.Count}");
+        if (sumCost == 0)
+            Debug.LogError("AStar 没有找到路径");
+        else
+            Debug.LogError($"AStar 总成本: {sumCost}, 总步数: {path.Count}");
+    }
+
+    private void Show(Graph graph, Vector2 offset, Color color, List<Pos> path)
+    {
+        var units = new List<Transform>();
+        SpawnUnit(graph, offset, ref units);
+        DrawGrid(graph, units, color);
+        DrawPath(graph, path, units);
     }
 
     private void SpawnUnit(Graph graph, Vector2 offset, ref List<Transform> units)
